@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<link rel="icon" type="image/png" href="https://1000logos.net/wp-content/uploads/2022/11/Warhammer-logo.png">
+	<link rel="apple-touch-icon" href="https://1000logos.net/wp-content/uploads/2022/11/Warhammer-logo.png">
+    <title>40k Game Tracker 2025-26 - Pro Tracker</title>
+    <style>
+        :root { --gold: #fcc419; --blue: #339af0; --red: #ff6b6b; --bg: #0b0e11; --card: #1c1f22; }
+        
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; display: flex; justify-content: center; min-height: 100vh; }
+        
+        .app-container { 
+            width: 100%; 
+            max-width: 800px; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            background: #161a1d; 
+            position: relative; 
+        }
+
+        .header { padding: 10px; background: #0b0e11; border-bottom: 2px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        .btn-toggle { background: #333; color: var(--gold); width: 100%; padding: 15px; font-size: 1em; border: none; border-bottom: 2px solid #444; cursor: pointer; font-weight: bold; }
+
+        /* Enhanced Mission Overlay */
+        #mission-overlay { background: #000; display: none; flex-direction: column; align-items: center; padding-bottom: 15px; overflow-y: auto; height: 100%; position: absolute; inset: 0; z-index: 160; }
+        .map-frame { 
+            width: 98%; 
+            height: 45vh; 
+            min-height: 350px;
+            border: 1px solid #444; 
+            position: relative; 
+            background-color: #000; 
+            margin: 5px 0; 
+            border-radius: 4px; 
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .map-img { width: 100%; height: 100%; object-fit: contain; }
+
+        .info-scroll-area { width: 95%; padding: 10px; }
+        .mission-detail-box { background: #111; border: 1px solid #444; padding: 15px; border-radius: 8px; margin-top: 10px; text-align: left; }
+        .mission-label { color: var(--gold); font-weight: bold; font-size: 0.9em; text-transform: uppercase; margin-bottom: 5px; display: block; }
+
+        /* Gameplay UI */
+        .game-area { display: flex; flex: 1; overflow-y: auto; padding: 10px; gap: 10px; }
+        .player { flex: 1; padding: 10px; opacity: 0.3; border-top: 5px solid transparent; transition: 0.3s; background: rgba(255,255,255,0.03); border-radius: 12px; display: flex; flex-direction: column; }
+        .active { opacity: 1; background: rgba(255,255,255,0.08); border-top-color: inherit; }
+        
+        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+        .stat-card { background: var(--card); padding: 6px; border-radius: 8px; border: 1px solid #333; text-align: center; }
+        .stat-label { font-size: 0.55em; font-weight: bold; text-transform: uppercase; display: block; height: 12px; }
+        .val { font-size: 1.5em; font-weight: 900; display: block; margin: 4px 0; color: #fff; }
+        
+        button { border: none; font-weight: bold; cursor: pointer; border-radius: 6px; transition: 0.1s; }
+        button:active { transform: scale(0.95); }
+        .mod-btn { width: 46%; padding: 6px 0; background: #444; color: white; font-size: 0.9em; margin: 1%; }
+        .draw-btn { width: 100%; background: var(--gold); padding: 10px; margin-top: 5px; color: #000; font-size: 0.85em; }
+
+        .sec-card { background: #2d3436; padding: 10px; border-radius: 8px; border-left: 4px solid var(--gold); margin-top: 8px; min-height: 90px; display: flex; flex-direction: column; justify-content: center; }
+        .sec-title { font-size: 0.75em; font-weight: bold; color: var(--gold); text-transform: uppercase; }
+        .sec-desc { font-size: 0.65em; line-height: 1.3; color: #eee; margin-top: 4px; }
+
+        .modal { position: absolute; inset: 0; background: var(--bg); z-index: 200; display: flex; flex-direction: column; align-items: center; padding: 20px; text-align: center; overflow-y: auto; }
+        .brief-box { background: var(--card); padding: 20px; border: 1px solid #444; border-radius: 15px; width: 100%; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div id="setup-modal" class="modal">
+        <h1 style="color:var(--gold);">40k Game Tracker 2025-26</h1>
+        <div id="brief" class="brief-box">Roll for mission to begin</div>
+        <div id="setup-map" class="map-frame" style="display:none; height: 30vh; min-height: 250px;"></div>
+        <button id="roll-btn" onclick="rollBattle()" style="padding:18px 50px; background:white; border-radius:40px; font-size: 1.2em; margin-top: 10px;">ROLL MISSION</button>
+        <div id="p-select" style="display:none; margin-top:20px; width: 100%;">
+            <p>Who starts?</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="startGame('Defender')" style="background:var(--blue); color:white; padding:18px; flex: 1;">DEFENDER</button>
+                <button onclick="startGame('Attacker')" style="background:var(--red); color:white; padding:18px; flex: 1;">ATTACKER</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="header">
+        <button onclick="location.reload()" style="background:#444; color:#fff; padding: 6px 12px; font-size: 0.7em;">RESET</button>
+        <div style="text-align:center">
+            <div id="rd-txt" style="font-size:0.6em; opacity: 0.7;">ROUND 1</div>
+            <div id="turn-txt" style="color:var(--gold); font-weight:bold; font-size: 1em;">BATTLE</div>
+        </div>
+        <button onclick="nextTurn()" style="background:var(--gold); padding:8px 20px; border-radius:20px; font-size:0.9em;">NEXT TURN</button>
+    </div>
+
+    <button class="btn-toggle" onclick="toggleMission()">📂 VIEW MISSION & MAP</button>
+
+    <div id="mission-overlay">
+        <button class="btn-toggle" style="background: var(--gold); color: black;" onclick="toggleMission()">CLOSE INFO</button>
+        <div id="main-map" class="map-frame"></div>
+        <div class="info-scroll-area" id="primary-info"></div>
+    </div>
+
+    <div class="game-area">
+        <div class="player active" id="p-def" style="border-top-color:var(--blue)">
+            <div class="stat-grid">
+                <div class="stat-card">
+                    <span class="stat-label" style="color:var(--blue)">CP</span>
+                    <span class="val" id="cp-def">0</span>
+                    <button class="mod-btn" onclick="mod('cp-def', 1)">+</button><button class="mod-btn" onclick="mod('cp-def', -1)">-</button>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Pri</span>
+                    <span class="val" id="vpp-def">0</span>
+                    <button class="mod-btn" onclick="mod('vpp-def', 5)">+5</button><button class="mod-btn" onclick="mod('vpp-def', 1)">+1</button>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Sec</span>
+                    <span class="val" id="vps-def">0</span>
+                    <button class="mod-btn" onclick="mod('vps-def', 5)">+5</button><button class="mod-btn" onclick="mod('vps-def', 1)">+1</button>
+                </div>
+            </div>
+            <div id="def-s1" class="sec-card"><div class="sec-title">Slot 1</div><div class="sec-desc">Empty</div></div>
+            <button class="draw-btn" onclick="drawCard('def', 1)">DRAW CARD</button>
+            <div id="def-s2" class="sec-card"><div class="sec-title">Slot 2</div><div class="sec-desc">Empty</div></div>
+            <button class="draw-btn" onclick="drawCard('def', 2)">DRAW CARD</button>
+        </div>
+
+        <div class="player" id="p-atk" style="border-top-color:var(--red)">
+            <div class="stat-grid">
+                <div class="stat-card">
+                    <span class="stat-label" style="color:var(--red)">CP</span>
+                    <span class="val" id="cp-atk">0</span>
+                    <button class="mod-btn" onclick="mod('cp-atk', 1)">+</button><button class="mod-btn" onclick="mod('cp-atk', -1)">-</button>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Pri</span>
+                    <span class="val" id="vpp-atk">0</span>
+                    <button class="mod-btn" onclick="mod('vpp-atk', 5)">+5</button><button class="mod-btn" onclick="mod('vpp-atk', 1)">+1</button>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Sec</span>
+                    <span class="val" id="vps-atk">0</span>
+                    <button class="mod-btn" onclick="mod('vps-atk', 5)">+5</button><button class="mod-btn" onclick="mod('vps-atk', 1)">+1</button>
+                </div>
+            </div>
+            <div id="atk-s1" class="sec-card"><div class="sec-title">Slot 1</div><div class="sec-desc">Empty</div></div>
+            <button class="draw-btn" onclick="drawCard('atk', 1)">DRAW CARD</button>
+            <div id="atk-s2" class="sec-card"><div class="sec-title">Slot 2</div><div class="sec-desc">Empty</div></div>
+            <button class="draw-btn" onclick="drawCard('atk', 2)">DRAW CARD</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let round = 1, current = '', first = '';
+    
+    const secondaryDeck = [
+        { t: "Assassination", d: "4 VP per Character killed." },
+        { t: "Bring It Down", d: "2-6 VP per Monster/Vehicle." },
+        { t: "Cleanse", d: "Action: NML Obj. 2-4 VP." },
+        { t: "Behind Enemy Lines", d: "4 VP for 2+ units in enemy DZ." },
+        { t: "Secure NML", d: "5 VP for holding 2+ NML obj." },
+        { t: "Deploy Teleport Homer", d: "Action: DZ (5 VP) or Center (2 VP)." },
+        { t: "Storm Hostile Objective", d: "4 VP if you capture enemy obj." },
+        { t: "Investigate Signals", d: "Action: Corners. 2 VP per corner." },
+        { t: "Extend Battle Lines", d: "2 VP: Home + 1 NML obj." },
+        { t: "Area Denial", d: "5 VP: No enemies within 6\" of center." }
+    ];
+
+    let decks = { def: [...secondaryDeck], atk: [...secondaryDeck] };
+
+    const layouts = [
+        { name: "Search & Destroy", img: "https://wahapedia.ru/wh40k10ed/img/maps/cards/CA6_SF_SearchAndDestroy.png" },
+        { name: "Tipping Point", img: "https://wahapedia.ru/wh40k10ed/img/maps/cards/CA6_SF_TippingPoint.png" },
+        { name: "Dawn of War", img: "https://wahapedia.ru/wh40k10ed/img/maps/cards/CA6_SF_DawnOfWar.png" },
+        { name: "Crucible of Battle", img: "https://wahapedia.ru/wh40k10ed/img/maps/cards/CA6_SF_CrucibleOfBattle.png" },
+        { name: "Hammer and Anvil", img: "https://wahapedia.ru/wh40k10ed/img/maps/cards/CA6_SF_HammerAndAnvil.png" },
+        { name: "Sweeping Engagement", img: "https://wahapedia.ru/wh40k10ed/img/maps/cards/CA6_SF_SweepingEngagement.png" }
+    ];
+
+    const primaries = [
+        { 
+            n: "Take & Hold", 
+            s: "5 VP per obj (max 15)", 
+            d: `<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> End of the Command phase (or the end of your turn if it is the fifth battle round and you are going second).<br>
+
+		The player whose turn it is scores 5VP for each objective marker they control (up to 15VP per turn).` 
+        },
+        { 
+            n: "Scorched Earth", 
+            s: "5 VP per obj + Action", 
+            d: `<strong>BURN OBJECTIVE (ACTION)</strong><br>
+		<strong>STARTS:</strong> Your Shooting phase, from the second battle round onwards.<br>
+
+		<strong>UNITS:</strong> One unit from your army within range of an objective marker that is not within your deployment zone.<br>
+
+		<strong>COMPLETES:</strong> End of your opponent’s next turn or the end of the battle (whichever comes first), if your unit is still within range of the same objective marker and you control that objective marker.<br>
+
+		<strong>IF COMPLETED:</strong> That objective marker is burned and removed from the battlefield.<br>
+
+		<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> Any time.<br>
+
+		Each time a player burns an objective marker, that player scores 5VP if that objective marker was in No Man’s Land, or 10VP instead if that objective marker was in their opponent’s deployment zone.<br>
+
+		<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> End of the Command phase (or the end of your turn if it is the fifth battle round and you are going second).<br>
+
+		The player whose turn it is scores 5VP for each objective marker they control (up to 10VP per turn).` 
+        },
+        { 
+            n: "Purge the Foe", 
+            s: "4 VP hold 1+, 4 VP kill 1+", 
+            d: `<strong>WHEN:</strong> End of the battle round.<br>
+
+		Each player scores 4VP if one or more enemy units were destroyed this battle round.<br>
+
+		<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> End of the battle round.<br>
+
+		Each player scores 4VP if more enemy units than friendly units were destroyed this battle round.<br>
+
+		<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> End of the Command phase (or the end of your turn if it is the fifth battle round and you are going second).<br>
+
+		The player whose turn it is scores 4VP if they control one or more objective markers, and an additional 4VP if they control more objective markers than their opponent controls.` 
+        },
+        { 
+            n: "The Ritual", 
+            s: "5 VP Ritual Obj held", 
+            d: `<strong>THE RITUAL (ACTION)</strong><br>
+		
+		<strong>STARTS:</strong> Your Shooting phase.<br>
+
+		<strong>UNITS:</strong> One unit from your army.<br>
+
+		<strong>COMPLETES:</strong> End of your turn.<br>
+
+		<strong>IF COMPLETED:</strong> Set up one objective marker anywhere on the battlefield wholly within No Man’s Land and within 1" of your unit, provided it can be setup exactly 12" from one other objective marker within 			No Man’s Land and not within 6" of any other objective marker.<br>
+
+		<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> End of the Command phase (or the end of your turn if it is the fifth battle round and you are going second).<br>
+
+			The player whose turn it is scores 5VP for each objective marker in No Man’s Land that they control (up to 15VP per turn).` 
+        },
+		{
+			n: "Linchpin",
+			s: "3vp obj home 5vp NML",
+			d: `<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> End of the Command phase (or the end of your turn if it is the fifth battle round and you are going second).<br>
+
+		If the player whose turn it is does not control the objective marker in their deployment zone, they score 3VP for each objective marker they control.<br>
+
+		<strong>OR</strong><br>
+		If the player whose turn it is controls the objective marker in their deployment zone, they score 3VP for controlling that objective marker, and 5VP for each other objective marker they control (up to 15VP per turn).<br>`
+		},
+		{
+			n: "Terraform",
+			s: "4vp per obj + 1vp TF",
+			d: `<strong>TERRAFORM (ACTION)</strong><br>
+		<strong>STARTS:</strong> Your Shooting phase.<br>
+
+		<strong>UNITS:</strong> One or more units from your army, each within range of a different objective marker that is not within your deployment zone.<br>
+
+		<strong>COMPLETES:</strong> End of the turn, if the unit performing this Action is still within range of the same objective marker and you control that objective marker.<br>
+
+		<strong>IF COMPLETED: Each of those objective markers is terraformed by you. If that objective marker was terraformed by your opponent, it no longer is.<br>
+
+		<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> End of the Command phase (or the end of your turn if it is the fifth battle round and you are going second).<br>
+
+		The player whose turn it is scores 4VP for each objective marker they control (up to 12VP per turn).<br>
+
+		<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> End of the turn.<br>
+
+		Each player scores 1VP for each objective marker that is terraformed by them.`
+		},
+		{
+			n: "Supply Drop",
+			s: "NML obj 5VP T2-3, 8VP T4, 15VP T5",
+			d: `<strong>Start of the Battle:</strong> Players randomly select two different objective markers within No Man’s Land that are not in the centre of the battlefield; the first selected is the Alpha objective, the second selected is the Omega objective.<br>
+
+		<strong>Start of the Fourth Battle Round:</strong> The Alpha objective is removed from the battlefield.<br>
+
+		<strong>Start of the Fifth Battle Round:</strong> The Omega objective is removed from the battlefield.<br>
+
+		<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> End of the Command phase (or the end of your turn if it is the fifth battle round and you are going second).<br>
+
+		The player whose turn it is scores the following VP for each objective marker in No Man’s Land that they control, depending on the current battle round:<br>
+		5VP in the second and third battle rounds.<br>
+		8VP in the fourth battle round.<br>
+		15VP in the fifth battle round.`
+		},
+		{
+			n: "Burden Of Trust",
+			s: "4VP per obj Not in own DZ",
+			d: `At the end of the Command phase, for each objective marker the player whose turn it is controls, they can select one unit from their army (excluding AIRCRAFT) within range of that objective marker to guard it until the start of their next turn.<br>
+
+		<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> End of the Command phase (or the end of your turn if it is the fifth battle round and you are going second).<br>
+
+		The player whose turn it is scores 4VP for each objective marker they control that is not within their deployment zone.<br>
+
+		<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> End of each player’s turn.<br>
+
+		The opponent of the player whose turn it is scores 2VP for each of their units (excluding Battle-shocked units) that are within range of and guarding an objective marker they control.<br>
+
+		Designer’s Note: Note that the player going second has the first chance to score VP in this way, as they can guard objectives in their first turn and score VP in their opponent’s next turn.`
+		},
+		{
+			n: "Hidden Supplies",
+			s: "5VP obj in DZ, 5VP obj not DZ, 5VP OP DZ",
+			d: `In the Place Objective Markers step, players must set up one additional objective marker in No Man’s Land.<br>
+
+		Before setting up this new objective marker, players must first move the objective marker in the centre of the battlefield 6" directly towards one of the corners of the battlefield (if No Man’s Land touches any of the corners of the battlefield, you must move the objective marker towards one of those corners). Otherwise, the players roll off, and the winner selects which corner the objective marker is moved towards. Players then set up the new objective marker 6 from the centre of the battlefield towards the diagonally opposite corner of the battlefield to the previously moved objective marker.<br>
+
+		<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> End of the Command phase (or the end of your turn if it is the fifth battle round and you are going second).<br>
+
+		<strong>The player whose turn it is scores VP as follows (these are cumulative):</strong><br>
+		5VP If they control one objective marker not within their deployment zone.<br>
+		5VP If they control two objective markers not within their deployment zone.<br>
+		5VP if they control more objective markers than their opponent controls.
+			`
+		},
+		{
+			n: "Unexploded Ordnance",
+			s: "8 / 5 / 2 VP per Hazard marker",
+			d: `Start of the Battle: Each objective marker within No Man’s Land becomes a Hazard objective marker.<br>
+
+		<strong>MOVE HAZARD (ACTION)</strong><br>
+		<strong>STARTS:</strong> Your Shooting phase.<br>
+
+		<strong>UNITS:</strong> One or more units from your army, each within range of a different Hazard objective marker you control.<br>
+
+		<strong>COMPLETES:</strong> End of your turn, if the unit performing this Action is still within range of the same Hazard objective marker and you control that objective marker.<br>
+
+		<strong>IF COMPLETED:</strong> You can move each of those Hazard objective markers up to 6". When doing so, that objective marker cannot end that move on top of any other objective marker or model, or inside impassable parts of terrain features.<br>
+
+		<strong>SECOND BATTLE ROUND ONWARDS</strong><br>
+		<strong>WHEN:</strong> End of each player’s turn.<br>
+		<strong>The player whose turn it is scores VP as follows:</strong><br>
+		8VP for each Hazard objective marker that is wholly within their opponent’s deployment zone.<br>
+		5VP for each other Hazard objective marker that is wholly within 6" of their opponent’s deployment zone.<br>
+		2VP for each other Hazard objective marker that is wholly within 12" of their opponent’s deployment zone.`
+		}
+    ];
+
+    function rollBattle() {
+        const l = layouts[Math.floor(Math.random()*layouts.length)];
+        const p = primaries[Math.floor(Math.random()*primaries.length)];
+        const imgHtml = `<img src="${l.img}" class="map-img">`;
+        
+        document.getElementById('brief').innerHTML = `<h2 style="color:var(--gold);margin:0;">${l.name}</h2><p>${p.n}</p>`;
+        document.getElementById('setup-map').innerHTML = imgHtml;
+        document.getElementById('main-map').innerHTML = imgHtml;
+        document.getElementById('setup-map').style.display = 'block';
+        document.getElementById('roll-btn').style.display = 'none';
+        document.getElementById('p-select').style.display = 'block';
+        
+        // Detailed info assembly
+        document.getElementById('primary-info').innerHTML = `
+            <div class="mission-detail-box">
+                <span class="mission-label">Deployment</span>
+                <strong style="font-size:1.2em;">${l.name}</strong>
+            </div>
+            <div class="mission-detail-box">
+                <span class="mission-label">Primary Mission</span>
+                <strong style="font-size:1.2em; display:block;">${p.n}</strong>
+                <span style="color:var(--gold); font-size:0.8em;">${p.s}</span>
+                <hr style="border:0; border-top:1px solid #333; margin:10px 0;">
+                <p style="color:#ccc; font-size:0.85em; margin:0;">${p.d}</p>
+            </div>
+        `;
+    }
+
+    function toggleMission() {
+        const ov = document.getElementById('mission-overlay');
+        ov.style.display = (ov.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function startGame(p) { 
+        current = p; 
+        first = p; 
+        document.getElementById('setup-modal').style.display = 'none'; 
+        mod('cp-def', 1);
+        mod('cp-atk', 1);
+        update(); 
+    }
+
+    function mod(id, n) { 
+        let e = document.getElementById(id); 
+        e.innerText = Math.max(0, parseInt(e.innerText) + n); 
+    }
+
+    function drawCard(player, slot) {
+        let deck = decks[player];
+        if (deck.length === 0) return;
+        const randIdx = Math.floor(Math.random() * deck.length);
+        const card = deck.splice(randIdx, 1)[0];
+        document.getElementById(`${player}-s${slot}`).innerHTML = `<div class="sec-title">${card.t}</div><div class="sec-desc">${card.d}</div>`;
+    }
+
+    function update() {
+        document.getElementById('rd-txt').innerText = "ROUND " + round;
+        document.getElementById('turn-txt').innerText = current.toUpperCase();
+        document.getElementById('p-def').classList.toggle('active', current === 'Defender');
+        document.getElementById('p-atk').classList.toggle('active', current === 'Attacker');
+    }
+
+    function nextTurn() {
+        if (current === first) {
+            current = (first === 'Defender') ? 'Attacker' : 'Defender';
+        } else {
+            if (round < 5) {
+                round++;
+                current = first;
+            }
+        }
+        mod('cp-def', 1);
+        mod('cp-atk', 1);
+        update();
+    }
+</script>
+</body>
+</html>
